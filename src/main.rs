@@ -5,10 +5,15 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
-use invaders::{frame, render};
+use invaders::{frame, frame::Drawable, player::Player, render};
 use rusty_audio::Audio;
-use std::{io::{stdout, self}, sync::mpsc, thread};
-use std::{error::Error, time::Duration};
+use std::{
+    error::Error,
+    io::{self, stdout},
+    sync::mpsc,
+    thread,
+    time::Duration,
+};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut audio = Audio::new();
@@ -32,7 +37,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut last_frame = frame::new_frame();
         let mut stdout = io::stdout();
         render::render(&mut stdout, &last_frame, &last_frame, true);
-        loop { 
+        loop {
             let curr_frame = match render_rx.recv() {
                 Ok(x) => x,
                 Err(_) => break,
@@ -43,9 +48,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     // Game loop
+    let mut player = Player::new();
     'gameloop: loop {
         // Per-frame init
-        let curr_frame = frame::new_frame();
+        let mut curr_frame = frame::new_frame();
 
         // User Input
         while event::poll(Duration::default())? {
@@ -55,13 +61,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                         audio.play("lose");
                         break 'gameloop;
                     }
-                    _ => {
-                    }
+                    KeyCode::Left => player.move_left(),
+                    KeyCode::Right => player.move_right(),
+                    _ => {}
                 }
             }
         }
 
         // Draw and render
+        player.draw(&mut curr_frame);
         let _ = render_tx.send(curr_frame);
         thread::sleep(Duration::from_millis(1));
     }
