@@ -12,17 +12,15 @@ use std::{
     io::{self, stdout},
     sync::mpsc,
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // Setup Audio
     let mut audio = Audio::new();
-    audio.add("explode", "sounds/explode.wav");
-    audio.add("lose", "sounds/lose.wav");
-    audio.add("move", "sounds/move.wav");
-    audio.add("pew", "sounds/pew.wav");
-    audio.add("startup", "sounds/startup.wav");
-    audio.add("win", "sounds/win.wav");
+    for audio_filename in ["explode", "lose", "move", "pew", "startup", "win"] {
+        audio.add(audio_filename, format!("sounds/{}.wav", audio_filename));
+    }
     audio.play("startup");
 
     // Terminal
@@ -49,8 +47,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Game loop
     let mut player = Player::new();
+    let mut instant = Instant::now();
+
     'gameloop: loop {
         // Per-frame init
+        let delta = instant.elapsed();
+        instant = Instant::now();
         let mut curr_frame = frame::new_frame();
 
         // User Input
@@ -63,10 +65,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                     KeyCode::Left => player.move_left(),
                     KeyCode::Right => player.move_right(),
+                    KeyCode::Char(' ') | KeyCode::Enter => {
+                        if player.shoot() {
+                            audio.play("pew");
+                        }
+                    }
                     _ => {}
                 }
             }
         }
+
+        // Timers
+        player.update(delta);
 
         // Draw and render
         player.draw(&mut curr_frame);
